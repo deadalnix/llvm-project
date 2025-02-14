@@ -11790,6 +11790,17 @@ SDValue DAGCombiner::foldSelectOfConstants(SDNode *N) {
     return DAG.getNode(ISD::OR, DL, VT, Cond, N2);
   }
 
+  // select Cond, 0, Pow2 --> (zext(not Cond) << log2(Pow2))
+  if (C1Val.isZero() && C2Val.isPowerOf2()) {
+    SDValue NotCond = DAG.getNOT(DL, Cond, MVT::i1);
+    NotCond = DAG.getZExtOrTrunc(NotCond, DL, VT);
+    if (C2Val.isOne())
+      return NotCond;
+
+    SDValue ShAmtC = DAG.getShiftAmountConstant(C2Val.exactLogBase2(), VT, DL);
+    return DAG.getNode(ISD::SHL, DL, VT, NotCond, ShAmtC);
+  }
+
   // select Cond, C, -1 --> or (sext (not Cond)), C
   if (C2->isAllOnes()) {
     SDValue NotCond = DAG.getNOT(DL, Cond, MVT::i1);
